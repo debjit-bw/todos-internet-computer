@@ -1,3 +1,13 @@
+type Todo = record {
+    "id": nat64;
+    "text": text;
+    "completed": bool;
+};
+
 service : {
-    "greet": (text) -> (text) query;
+    "add_todos": (vec text) -> ();
+    "getPaginatedTodos": (nat64, nat64) -> (vec Todo) query;
+    "getTodo": (nat64) -> (Todo) query;
+    "remove_todos": (nat64) -> ();
+    "toggle_todo": (nat64) -> ();
 }
