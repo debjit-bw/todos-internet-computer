@@ -4,11 +4,21 @@ type Todo = record {
     "completed": bool;
 };
 
+type ToggleResult = record {
+    "state": bool;
+    "error": opt text;
+};
+
+type UpdateResult = record {
+    "todo": opt Todo;
+    "error": opt text;
+};
+
 service : {
     "getPaginatedTodos": (nat64, nat64) -> (vec Todo) query;
-    "getTodo": (nat64) -> (Todo) query;
+    "getTodo": (nat64) -> (opt Todo) query;
     "addTodos": (vec text) -> (nat64);
     "removeTodos": (vec nat64) -> (nat64);
-    "toggleTodo": (nat64) -> (bool);
-    "updateTodoText": (nat64, text) -> (Todo);
+    "toggleTodo": (nat64) -> (ToggleResult);
+    "updateTodoText": (nat64, text) -> (UpdateResult);
 }
