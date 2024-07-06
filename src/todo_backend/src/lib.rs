@@ -1,7 +1,5 @@
 use candid::{CandidType, Deserialize, Principal};
-use ic_cdk::{
-    query, update,
-};
+use ic_cdk::{query, update};
 use std::cell::RefCell;
 use std::collections::{HashMap, BTreeSet};
 
@@ -18,7 +16,7 @@ struct Todo {
 struct TodoTree {
     pub count: usize,
     pub todos: HashMap<usize, Todo>,
-    pub order: BTreeSet<Todo>, // Using BTreeSet to maintain ordered todos
+    pub order: BTreeSet<usize>, // Store only IDs to maintain order
 }
 
 thread_local! {
@@ -35,7 +33,7 @@ fn get_paginated_todos(offset: usize, limit: usize) -> Vec<Todo> {
                 .iter()
                 .skip(offset)
                 .take(limit)
-                .cloned()
+                .filter_map(|id| todo_tree.todos.get(id).cloned())
                 .collect()
         } else {
             Vec::new()
@@ -53,12 +51,12 @@ fn get_todo(id: usize) -> Option<Todo> {
 }
 
 #[update(name = "addTodos")]
-fn add_todos(todos: Vec<String>) {
+fn add_todos(todos: Vec<String>) -> usize {
     let id = ic_cdk::api::caller();
     TODOTREE.with(|profile_store| {
         let mut profile_store = profile_store.borrow_mut();
         let todo_tree = profile_store.entry(id).or_insert_with(TodoTree::default);
-        
+
         for text in todos {
             let todo_id = todo_tree.count;
             let todo = Todo {
@@ -66,40 +64,42 @@ fn add_todos(todos: Vec<String>) {
                 text,
                 completed: false,
             };
-            todo_tree.todos.insert(todo_id, todo.clone());
-            todo_tree.order.insert(todo);
+            todo_tree.todos.insert(todo_id, todo);
+            todo_tree.order.insert(todo_id);
             todo_tree.count += 1;
         }
-    });
+        todo_tree.count
+    })
 }
 
 #[update(name = "removeTodos")]
-fn remove_todos(ids: Vec<usize>) {
+fn remove_todos(ids: Vec<usize>) -> usize {
     let id = ic_cdk::api::caller();
     TODOTREE.with(|profile_store| {
+        let length = ids.len();
         let mut profile_store = profile_store.borrow_mut();
         if let Some(todo_tree) = profile_store.get_mut(&id) {
             for id in ids {
-                if let Some(todo) = todo_tree.todos.remove(&id) {
-                    todo_tree.order.remove(&todo);
-                }
+                todo_tree.todos.remove(&id);
+                todo_tree.order.remove(&id);
             }
+            todo_tree.count -= length;
+            todo_tree.count
+        } else {
+            0
         }
-    });
+    })
 }
 
-#[update]
-fn toggle_todo(todo_id: usize) -> Result<(), String> {
+#[update(name = "toggleTodo")]
+fn toggle_todo(todo_id: usize) -> Result<(bool), String> {
     let id = ic_cdk::api::caller();
     TODOTREE.with(|profile_store| {
         let mut profile_store = profile_store.borrow_mut();
         if let Some(todo_tree) = profile_store.get_mut(&id) {
-            if let Some(mut todo) = todo_tree.todos.remove(&todo_id) {
+            if let Some(todo) = todo_tree.todos.get_mut(&todo_id) {
                 todo.completed = !todo.completed;
-                todo_tree.order.remove(&todo);
-                todo_tree.order.insert(todo.clone());
-                todo_tree.todos.insert(todo_id, todo);
-                Ok(())
+                Ok(todo.completed)
             } else {
                 Err(format!("Todo with id {} not found", todo_id))
             }
@@ -110,17 +110,14 @@ fn toggle_todo(todo_id: usize) -> Result<(), String> {
 }
 
 #[update(name = "updateTodoText")]
-fn update_todo_text(todo_id: usize, new_text: String) -> Result<(), String> {
+fn update_todo_text(todo_id: usize, new_text: String) -> Result<(Todo), String> {
     let id = ic_cdk::api::caller();
     TODOTREE.with(|profile_store| {
         let mut profile_store = profile_store.borrow_mut();
         if let Some(todo_tree) = profile_store.get_mut(&id) {
-            if let Some(mut todo) = todo_tree.todos.remove(&todo_id) {
+            if let Some(todo) = todo_tree.todos.get_mut(&todo_id) {
                 todo.text = new_text;
-                todo_tree.order.remove(&todo); // Remove old entry
-                todo_tree.order.insert(todo.clone()); // Insert updated entry
-                todo_tree.todos.insert(todo_id, todo);
-                Ok(())
+                Ok(todo.clone())
             } else {
                 Err(format!("Todo with id {} not found", todo_id))
             }
