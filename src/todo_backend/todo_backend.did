@@ -9,6 +9,6 @@ service : {
     "getTodo": (nat64) -> (Todo) query;
     "addTodos": (vec text) -> (nat64);
     "removeTodos": (vec nat64) -> (nat64);
-    "toggleTodo": (nat64) -> ();
-    "updateTodoText": (nat64, text) -> ();
+    "toggleTodo": (nat64) -> (bool);
+    "updateTodoText": (nat64, text) -> (Todo);
 }

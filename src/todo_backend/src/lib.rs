@@ -76,14 +76,14 @@ fn add_todos(todos: Vec<String>) -> usize {
 fn remove_todos(ids: Vec<usize>) -> usize {
     let id = ic_cdk::api::caller();
     TODOTREE.with(|profile_store| {
-        let length = ids.len();
         let mut profile_store = profile_store.borrow_mut();
         if let Some(todo_tree) = profile_store.get_mut(&id) {
             for id in ids {
                 todo_tree.todos.remove(&id);
-                todo_tree.order.remove(&id);
+                if todo_tree.order.remove(&id) {
+                    todo_tree.count -= 1;
+                }
             }
-            todo_tree.count -= length;
             todo_tree.count
         } else {
             0
@@ -92,7 +92,7 @@ fn remove_todos(ids: Vec<usize>) -> usize {
 }
 
 #[update(name = "toggleTodo")]
-fn toggle_todo(todo_id: usize) -> Result<(bool), String> {
+fn toggle_todo(todo_id: usize) -> Result<bool, String> {
     let id = ic_cdk::api::caller();
     TODOTREE.with(|profile_store| {
         let mut profile_store = profile_store.borrow_mut();
@@ -110,7 +110,7 @@ fn toggle_todo(todo_id: usize) -> Result<(bool), String> {
 }
 
 #[update(name = "updateTodoText")]
-fn update_todo_text(todo_id: usize, new_text: String) -> Result<(Todo), String> {
+fn update_todo_text(todo_id: usize, new_text: String) -> Result<Todo, String> {
     let id = ic_cdk::api::caller();
     TODOTREE.with(|profile_store| {
         let mut profile_store = profile_store.borrow_mut();
