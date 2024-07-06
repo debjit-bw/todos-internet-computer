@@ -1,61 +1,67 @@
-# `todo`
+## Todo App Backend
 
-Welcome to your new `todo` project and to the Internet Computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+This implements a backend for a TODO app on the Internet Computer using Rust. It provides CRUD (Create, Read, Update, Delete) operations for managing TODO items. The backend is designed to be efficient and easy to use.
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+### Data Structures
 
-To learn more before you start working with `todo`, see the following documentation available online:
+#### `BTreeSet`
 
-- [Quick Start](https://internetcomputer.org/docs/current/developer-docs/setup/deploy-locally)
-- [SDK Developer Tools](https://internetcomputer.org/docs/current/developer-docs/setup/install)
-- [Rust Canister Development Guide](https://internetcomputer.org/docs/current/developer-docs/backend/rust/)
-- [ic-cdk](https://docs.rs/ic-cdk)
-- [ic-cdk-macros](https://docs.rs/ic-cdk-macros)
-- [Candid Introduction](https://internetcomputer.org/docs/current/developer-docs/backend/candid/)
+- **Usage**: The `BTreeSet` is used to store the order of TODO IDs (only IDs, not elements).
+- **Advantages**:
+  - **Ordered**: Maintains the order of elements, which is useful for efficiently retrieving paginated results.
+  - **Logarithmic Time Complexity**: Provides `O(log n)` time complexity for insertions, deletions, and lookups, making it efficient for maintaining ordered sets of IDs.
 
-If you want to start working on your project right away, you might want to try the following commands:
+#### `HashMap`
 
-```bash
-cd todo/
-dfx help
-dfx canister --help
-```
+- **Usage**: The `HashMap` is used to store TODO items and the TODO tree.
+- **Advantages**:
+  - **Fast Lookups**: Provides `O(1)` average time complexity for lookups, insertions, and deletions.
+  - **Efficient Storage**: Efficiently stores key-value pairs, where the keys are TODO IDs and the values are TODO items.
 
-## Running the project locally
+### Functions
 
-If you want to test your project locally, you can use the following commands:
+#### `get_paginated_todos(offset: usize, limit: usize) -> Vec<Todo>`
 
-```bash
-# Starts the replica, running in the background
-dfx start --background
+- **Input**: 
+  - `offset`: The starting index from which to retrieve TODO items.
+  - `limit`: The maximum number of TODO items to retrieve.
+- **Output**: A vector of TODO items starting from the specified offset up to the specified limit.
 
-# Deploys your canisters to the replica and generates your candid interface
-dfx deploy
-```
+#### `get_todo(id: usize) -> Option<Todo>`
 
-Once the job completes, your application will be available at `http://localhost:4943?canisterId={asset_canister_id}`.
+- **Input**: 
+  - `id`: The ID of the TODO item to retrieve.
+- **Output**: An optional TODO item. If the item exists, it is returned; otherwise, `None` is returned.
 
-If you have made changes to your backend canister, you can generate a new candid interface with
+#### `add_todos(todos: Vec<String>) -> usize`
 
-```bash
-npm run generate
-```
+- **Input**: 
+  - `todos`: A vector of TODO item texts to be added.
+- **Output**: The updated count of TODO items after the new items are added.
 
-at any time. This is recommended before starting the frontend development server, and will be run automatically any time you run `dfx deploy`.
+#### `remove_todos(ids: Vec<usize>) -> usize`
 
-If you are making frontend changes, you can start a development server with
+- **Input**: 
+  - `ids`: A vector of TODO item IDs to be removed.
+- **Output**: The updated count of TODO items after the specified items are removed.
 
-```bash
-npm start
-```
+#### `toggle_todo(todo_id: usize) -> ToggleResult`
 
-Which will start a server at `http://localhost:8080`, proxying API requests to the replica at port 4943.
+- **Input**: 
+  - `todo_id`: The ID of the TODO item to be toggled (completed or not completed).
+- **Output**: A `ToggleResult` struct containing:
+  - `state`: The new completed state of the TODO item (true if completed, false otherwise).
+  - `error`: An optional error message if the TODO item was not found.
 
-### Note on frontend environment variables
+#### `update_todo_text(todo_id: usize, new_text: String) -> UpdateResult`
 
-If you are hosting frontend code somewhere without using DFX, you may need to make one of the following adjustments to ensure your project does not fetch the root key in production:
+- **Input**: 
+  - `todo_id`: The ID of the TODO item to be updated.
+  - `new_text`: The new text for the TODO item.
+- **Output**: An `UpdateResult` struct containing:
+  - `todo`: An optional updated TODO item. If the update is successful, the updated TODO item is returned; otherwise, `None` is returned.
+  - `error`: An optional error message if the TODO item was not found.
 
-- set`DFX_NETWORK` to `ic` if you are using Webpack
-- use your own preferred method to replace `process.env.DFX_NETWORK` in the autogenerated declarations
-  - Setting `canisters -> {asset_canister_id} -> declarations -> env_override to a string` in `dfx.json` will replace `process.env.DFX_NETWORK` with the string in the autogenerated declarations
-- Write your own `createActor` constructor
+### Conclusion
+
+This backend for the TODO app leverages `BTreeSet` and `HashMap` to optimize for ordered retrieval and fast lookups, respectively. Each function is designed to handle specific CRUD operations.
