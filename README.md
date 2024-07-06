@@ -2,6 +2,9 @@
 
 This implements a backend for a TODO app on the Internet Computer using Rust. It provides CRUD (Create, Read, Update, Delete) operations for managing TODO items. The backend is designed to be efficient and easy to use.
 
+### Link to deployed canister
+[Visit the deployed canister](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=62nkg-7yaaa-aaaan-qmpla-cai)
+
 ### Data Structures
 
 #### `BTreeSet`
