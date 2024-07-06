@@ -111,21 +111,12 @@ async fn toggle_todo(todo_id: usize) -> ToggleResult {
         if let Some(todo_tree) = profile_store.get_mut(&id) {
             if let Some(todo) = todo_tree.todos.get_mut(&todo_id) {
                 todo.completed = !todo.completed;
-                ToggleResult {
-                    state: todo.completed,
-                    error: None,
-                }
+                ToggleResult { state: todo.completed, error: None }
             } else {
-                ToggleResult {
-                    state: false,
-                    error: Some(format!("Todo with id {} not found", todo_id)),
-                }
+                ToggleResult { state: false, error: Some(format!("Todo with id {} not found", todo_id)) }
             }
         } else {
-            ToggleResult {
-                state: false,
-                error: Some("Todo list for this user not found".to_string()),
-            }
+            ToggleResult { state: false, error: Some("Todo list for this user not found".to_string()) }
         }
     })
 }
@@ -138,21 +129,12 @@ async fn update_todo_text(todo_id: usize, new_text: String) -> UpdateResult {
         if let Some(todo_tree) = profile_store.get_mut(&id) {
             if let Some(todo) = todo_tree.todos.get_mut(&todo_id) {
                 todo.text = new_text;
-                UpdateResult {
-                    todo: Some(todo.clone()),
-                    error: None,
-                }
+                UpdateResult { todo: Some(todo.clone()), error: None }
             } else {
-                UpdateResult {
-                    todo: None,
-                    error: Some(format!("Todo with id {} not found", todo_id)),
-                }
+                UpdateResult { todo: None, error: Some(format!("Todo with id {} not found", todo_id)) }
             }
         } else {
-            UpdateResult {
-                todo: None,
-                error: Some("Todo list for this user not found".to_string()),
-            }
+            UpdateResult { todo: None, error: Some("Todo list for this user not found".to_string()) }
         }
     })
 }
