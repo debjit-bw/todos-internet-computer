@@ -2,6 +2,7 @@ use candid::{CandidType, Principal};
 use ic_cdk::{query, update};
 use std::cell::RefCell;
 use std::collections::{HashMap, BTreeSet};
+use core::ops::Bound::{Excluded, Included};
 
 type TodoTreeStore = HashMap<Principal, TodoTree>;
 
@@ -33,6 +34,47 @@ struct UpdateResult {
 
 thread_local! {
     static TODOTREE: RefCell<TodoTreeStore> = RefCell::default();
+}
+
+#[query(name = "getEffPaginatedTodos")]
+async fn get_paginated_todos_efficient(last_id: usize, limit: usize) -> Vec<Todo> {
+    let id = ic_cdk::api::caller();
+    TODOTREE.with(|profile_store| {
+        let todo_tree = profile_store.borrow();
+        let mut limit_ = limit;
+        if let Some(todo_tree) = todo_tree.get(&id) {
+            let range_start = match last_id {
+                0 => {
+                    limit_ -= 1;
+                    Included(0)
+                },
+                _ => Excluded(last_id),
+            };
+            let mut desired_range = todo_tree.order.range((range_start, Included(last_id + limit_)));
+            let mut fetched_todos = desired_range.cloned().collect::<Vec<usize>>();
+            let mut length = fetched_todos.len();
+
+            let mut multiple = 2;
+
+            // Handle cases where there are not enough todos to fulfill the limit
+            while fetched_todos.len() < limit && length > 0 {
+                let new_start = last_id + limit_;
+                desired_range = todo_tree.order.range((Excluded(new_start), Included(new_start + limit_ * multiple)));
+                let new_todos = desired_range.cloned().collect::<Vec<usize>>();
+                length = new_todos.len();
+                fetched_todos.extend(new_todos);
+                multiple *= 2;
+            }
+
+            fetched_todos
+                .into_iter()
+                .take(limit)
+                .filter_map(|id| todo_tree.todos.get(&id).cloned())
+                .collect()
+        } else {
+            Vec::new()
+        }
+    })
 }
 
 #[query(name = "getPaginatedTodos")]
