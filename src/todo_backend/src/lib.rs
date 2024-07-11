@@ -2,7 +2,7 @@ use candid::{CandidType, Principal};
 use ic_cdk::{query, update};
 use std::cell::RefCell;
 use std::collections::{HashMap, BTreeSet};
-use core::ops::Bound::{Excluded, Included};
+use core::ops::Bound::{Excluded, Included, Unbounded};
 
 type TodoTreeStore = HashMap<Principal, TodoTree>;
 
@@ -18,6 +18,7 @@ struct TodoTree {
     pub count: usize,
     pub todos: HashMap<usize, Todo>,
     pub order: BTreeSet<usize>, // Store only IDs to maintain order
+    pub next_id: usize
 }
 
 #[derive(CandidType)]
@@ -77,6 +78,37 @@ async fn get_paginated_todos_efficient(last_id: usize, limit: usize) -> Vec<Todo
     })
 }
 
+#[query(name = "getPaginatedTodosInterview")]
+fn get_paginated_todos_interview(last_id: usize, limit: usize) -> Vec<Todo> {
+    let id = ic_cdk::api::caller();
+    TODOTREE.with(|profile_store| {
+        let todo_tree = profile_store.borrow();
+        if let Some(todo_tree) = todo_tree.get(&id) {
+            let range_start = match last_id {
+                0 => Included(0),
+                _ => Excluded(last_id),
+            };
+            let mut desired_range = todo_tree.order.range((range_start, Unbounded)).into_iter();
+            let mut fetched_todos = Vec::<usize>::new();
+            while fetched_todos.len() < limit {
+                if let Some(id) = desired_range.next() {
+                    fetched_todos.push(*id);
+                } else {
+                    break;
+                }
+            }
+            
+            fetched_todos
+            .into_iter()
+            .take(limit)
+            .filter_map(|id| todo_tree.todos.get(&id).cloned())
+            .collect()
+        } else {
+            Vec::new()
+        }
+    })
+}
+
 #[query(name = "getPaginatedTodos")]
 async fn get_paginated_todos(offset: usize, limit: usize) -> Vec<Todo> {
     let id = ic_cdk::api::caller();
@@ -98,6 +130,10 @@ async fn get_paginated_todos(offset: usize, limit: usize) -> Vec<Todo> {
 #[query(name = "getTodo")]
 async fn get_todo(id: usize) -> Option<Todo> {
     let principal_id = ic_cdk::api::caller();
+    get_todo_sync(principal_id, id)
+}
+
+fn get_todo_sync(principal_id: Principal, id: usize) -> Option<Todo> {
     TODOTREE.with(|profile_store| {
         let todo_tree = profile_store.borrow();
         todo_tree.get(&principal_id).and_then(|tree| tree.todos.get(&id).cloned())
@@ -107,12 +143,16 @@ async fn get_todo(id: usize) -> Option<Todo> {
 #[update(name = "addTodos")]
 async fn add_todos(todos: Vec<String>) -> usize {
     let id = ic_cdk::api::caller();
+    add_todos_sync(id, todos)
+}
+
+fn add_todos_sync(id: Principal, todos: Vec<String>) -> usize {
     TODOTREE.with(|profile_store| {
         let mut profile_store = profile_store.borrow_mut();
         let todo_tree = profile_store.entry(id).or_insert_with(TodoTree::default);
 
         for text in todos {
-            let todo_id = todo_tree.count;
+            let todo_id = todo_tree.next_id;
             let todo = Todo {
                 id: todo_id,
                 text,
@@ -121,6 +161,7 @@ async fn add_todos(todos: Vec<String>) -> usize {
             todo_tree.todos.insert(todo_id, todo);
             todo_tree.order.insert(todo_id);
             todo_tree.count += 1;
+            todo_tree.next_id += 1;
         }
         todo_tree.count
     })
@@ -129,6 +170,10 @@ async fn add_todos(todos: Vec<String>) -> usize {
 #[update(name = "removeTodos")]
 async fn remove_todos(ids: Vec<usize>) -> usize {
     let id = ic_cdk::api::caller();
+    remove_todos_sync(id, ids)
+}
+
+fn remove_todos_sync(id: Principal, ids: Vec<usize>) -> usize {
     TODOTREE.with(|profile_store| {
         let mut profile_store = profile_store.borrow_mut();
         if let Some(todo_tree) = profile_store.get_mut(&id) {
@@ -179,4 +224,27 @@ async fn update_todo_text(todo_id: usize, new_text: String) -> UpdateResult {
             UpdateResult { todo: None, error: Some("Todo list for this user not found".to_string()) }
         }
     })
+}
+
+#[test]
+fn add() {
+    let id = Principal::anonymous();
+
+    for i in 0..10 {
+        let _ = add_todos_sync(id, vec![format!("Todo {}", i)]);
+    }
+
+    for i in 7..10 {
+        let _  = remove_todos_sync(id, vec![i]);
+    }
+
+    for i in 0..3 {
+        let _ = add_todos_sync(id, vec![format!("Todo {}", 11+i)]);
+    }
+
+    let todo_9 = get_todo_sync(id, 9);
+    assert!(todo_9.is_none());
+
+    let todo_11 = get_todo_sync(id, 11).unwrap();
+    assert!(todo_11.id == 11);
 }

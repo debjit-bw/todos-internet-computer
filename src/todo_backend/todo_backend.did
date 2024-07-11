@@ -15,6 +15,7 @@ type UpdateResult = record {
 };
 
 service : {
+    "getPaginatedTodosInterview": (nat64, nat64) -> (vec Todo) query;
     "getEffPaginatedTodos": (nat64, nat64) -> (vec Todo) query;
     "getPaginatedTodos": (nat64, nat64) -> (vec Todo) query;
     "getTodo": (nat64) -> (opt Todo) query;
